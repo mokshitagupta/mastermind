@@ -127,6 +127,10 @@ function verifyCookies(key, val, path, redir="/"){
     
 }
 
+function gotoGame(){
+    window.location.href = "/game"
+}
+
 //pic 1
 function submitPinky(){
     verifyCookies("option", 1, "/set-avatar")

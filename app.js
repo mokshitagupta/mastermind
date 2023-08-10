@@ -2,13 +2,21 @@ const express = require('express')
 // import { createServer as createViteServer } from 'vite'
 const db =  require('./db.js')
 const profile = require("./profile.js")
+const socketIO = require('socket.io');
 const bcrypt = require("bcrypt")
-const saltRounds = 10
+const http = require('http');
+const { Server } = require("socket.io");
 
+
+const saltRounds = 10
 var usernameRegex = /^[a-zA-Z0-9]{3,16}/;
 var pswdRegex = /^(?=.*[0-9])(?=.*[!@#$%^&*])[a-zA-Z0-9!@#$%^&*]{6,20}$/;
 
-const PORT = process.env.PORT || 3000;
+const PORT = process.env.PORT || 5173;
+let lobbies = []
+let lobbyLookup = {}
+let MAXCAP = 2
+let LOBBY_PREFIX = "Room "
 
 // app.listen(PORT, () => {
 //     console.log(`Server is running on port ${PORT}`);
@@ -25,6 +33,31 @@ function createCookie(username){
 
     return ret
 
+}
+
+function getLobby(player){
+
+    if (parseInt(player) in lobbyLookup){
+        console.log("player already exists")
+        return lobbyLookup[player]
+    }
+
+    if (lobbies.length == 0){
+        console.log("creating new lobby")
+        lobbies.push([player])
+    } else{
+        let last = lobbies[lobbies.length - 1]
+        if (last.length < MAXCAP){
+            console.log("putting in existing lobby")
+            lobbies[lobbies.length - 1].push(player)
+        }else{
+            console.log("creating new lobby")
+            lobbies.push([player])
+        }
+    }
+
+    lobbyLookup[parseInt(player)] = lobbies.length - 1
+    return lobbies.length - 1
 }
 
 function verifyCookie(id, cookie){
@@ -46,6 +79,39 @@ function verifyCookie(id, cookie){
 async function createServer() {
     const app = express()
     app.use(express.json())
+
+    const server = http.createServer(app);
+    const io = new Server(server);
+
+    io.on('connection', (socket) => {
+        console.log('A user just connected.');
+        socket.on('disconnect', () => {
+            console.log('A user has disconnected.');
+        })
+
+        socket.on('new user', (id) => {
+            console.log(`${id} has joined`);
+            const room = LOBBY_PREFIX+getLobby(id)
+            console.log(room)
+            socket.join(room)
+            socket.emit("assigned", room)
+        })
+
+        socket.on('add color', (details) => {
+            console.log(details)
+            io.to(details.room).emit("add color", details)
+        })
+
+        socket.on('undo', (details) => {
+            console.log(details)
+            io.to(details.room).emit("undo", details)
+        })
+
+        socket.on('submit', (details) => {
+            console.log(details)
+            io.to(details.room).emit("submit", details)
+        })
+    });
 
 
     app.use('/',express.static("./public/index.html") )
@@ -176,7 +242,7 @@ async function createServer() {
     // app.use(vite.middlewares)
     app.use(express.static('public'))
   
-    app.listen(5173)
+    server.listen(PORT)
 }
 
 // db.dbInsert({}).then((rt) => {

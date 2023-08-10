@@ -18,6 +18,7 @@ function renderProfile(info){
         <title>A Game</title>
     </head>
     <body class="body-choose">
+    <script src="/functions.js"></script>
     <h1>Welcome, <i>${info.username}</i></h1>
     <img src="${pfp}"></img>
     <h2>Stats and Information</h2>
@@ -30,6 +31,7 @@ function renderProfile(info){
     </li>
     <li>
     <button type="submit">Change Avatar</button>
+    <button onclick="gotoGame()" type="submit">Start Playing!</button>
     </li>
     </ul>
     </body>
