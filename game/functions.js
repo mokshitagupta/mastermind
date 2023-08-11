@@ -1,21 +1,27 @@
+//CONSTANTS ------
 const ROWNUM = 10
 const DOTS = 4
-var boardArr = []
-let history = []
-let curr = 1;
-let finished = 0;
 let totalTries = 10;
 const CORRECT = "correct";
 const WRONG = "wrong";
 const timeTop = "05:00"
 const mins = 5*60
+
+//STATES ------
+let started = false
+let waiting = false
+
+var boardArr = []
+let history = []
+let curr = 1;
 let score = 0
+let finished = 0;
 let done=false
 let blocked=false
-
-var socket=null
 let myLobby=""
 
+//SOCKET ------
+var socket=null
 
 let hiddenArr = ["green", "green", "green", "green"]
 
@@ -266,6 +272,8 @@ function handleMultSubmit(e){
 
 function startGame(){
 
+    document.getElementById("waiting-room").remove()
+    started = true
     setboard()
     let timer = document.getElementById("time")
     startTimer(mins, timer)
@@ -337,9 +345,14 @@ function undo(){
     document.dispatchEvent(event);
 }
 
-function startTimer(duration, display) {
+function startTimer(duration, display, action=endGame) {
     var timer = duration, minutes, seconds;
+    console.log("timer fn called")
     let timerFn = setInterval(function () {
+
+        if (waiting==true){
+            return
+        }
 
         if (done==true || timer==0){
             clearInterval(timerFn)
@@ -353,7 +366,7 @@ function startTimer(duration, display) {
         display.textContent = minutes + ":" + seconds;
 
         if (--timer < 0) {
-            endGame();
+            action();
             clearInterval(timerFn)
         }
     }, 1000)
@@ -362,16 +375,9 @@ function startTimer(duration, display) {
 function startMultGame(){
 
     // socket.emit('startGame');
-    
+    // document.getElementById("waiting-room").remove()
     document.getElementById("p2-gboard").classList.remove("hidden")
-    websocketConn()
-    const userID = sessionStorage.getItem("id")
-
-    if (userID){
-        socket.emit('new user', userID);
-    }else{
-        window.location.href = "/"
-    }
+    // websocketConn()
 
     setboard()
     setboard("p2-")
@@ -383,9 +389,31 @@ function startMultGame(){
 
 function websocketConn(){
     socket = io();
+
+    const userID = sessionStorage.getItem("id")
+
+    if (userID){
+        //TODO: Add verification
+        console.log("emiting new user")
+        socket.emit('new user', userID);
+    }else{
+        //redirect user to login
+        window.location.href = "/"
+    }
+
+    socket.on("option", () => {
+        if (started == false){
+            socket.emit("accept", true)
+            waiting = true
+        }else{
+            socket.emit("reject", false)
+        }
+    })
+
     socket.on("assigned", (lobby) => {
         myLobby = lobby
         console.log("i got assigned to lobby: ", myLobby)
+        startMultGame()
     })
 
     socket.on("add color", (detail) => {
@@ -417,3 +445,9 @@ function websocketConn(){
         }
     })
 }
+
+// module.exports = {
+//     websocketConn,
+//     socket,
+//     startTimer
+// }

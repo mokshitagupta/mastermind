@@ -30,7 +30,7 @@ function renderProfile(info){
     <button type="submit">Change username</button>
     </li>
     <li>
-    <button type="submit">Change Avatar</button>
+    <button onclick="redirAvatar()" type="submit">Change Avatar</button>
     <button onclick="gotoGame()" type="submit">Start Playing!</button>
     </li>
     </ul>
@@ -38,6 +38,7 @@ function renderProfile(info){
     </html>
     `
 }
+
 
 function renderChoices(){
     return `

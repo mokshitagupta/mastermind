@@ -13,6 +13,8 @@ var usernameRegex = /^[a-zA-Z0-9]{3,16}/;
 var pswdRegex = /^(?=.*[0-9])(?=.*[!@#$%^&*])[a-zA-Z0-9!@#$%^&*]{6,20}$/;
 
 const PORT = process.env.PORT || 5173;
+
+// [ [ [x,y], [x,y], [x,y] ] ]
 let lobbies = []
 let lobbyLookup = {}
 let MAXCAP = 2
@@ -35,29 +37,58 @@ function createCookie(username){
 
 }
 
-function getLobby(player){
+function getLobby(playeri, soc){
 
-    if (parseInt(player) in lobbyLookup){
+    let player = soc.id
+    if (player in lobbyLookup){
         console.log("player already exists")
-        return lobbyLookup[player]
+        let ret;
+        for (let i =0; i < lobbyLookup[player].length; i++){
+            if (!(lobbyLookup[player][i][0] == player)){
+                ret = lobbyLookup[player][i]
+            }
+        }
+        return [lobbies.length - 1, ret]
     }
 
     if (lobbies.length == 0){
-        console.log("creating new lobby")
-        lobbies.push([player])
+        console.log("creating first lobby")
+        lobbies.push([[player, soc]])
     } else{
         let last = lobbies[lobbies.length - 1]
         if (last.length < MAXCAP){
             console.log("putting in existing lobby")
-            lobbies[lobbies.length - 1].push(player)
+            lobbies[lobbies.length - 1].push([player,soc])
+            lobbyLookup[player] = lobbies.length - 1
+            return [lobbies.length - 1, lobbies[lobbies.length - 1][0] ]
         }else{
             console.log("creating new lobby")
-            lobbies.push([player])
+            lobbies.push([[player,soc]])
         }
     }
 
-    lobbyLookup[parseInt(player)] = lobbies.length - 1
-    return lobbies.length - 1
+    lobbyLookup[player] = lobbies.length - 1
+    return [lobbies.length - 1, null]
+}
+
+function lobbyRemove(id){
+    
+    let ind = lobbyLookup[id]
+    if(!ind){
+        return
+    }
+    console.log(id, lobbies, ind, lobbyLookup)
+    delete lobbyLookup[id]
+    for (let i=0; i< lobbies[ind]; i++){
+        let el = lobbies[ind][i][0]
+        if(el == id){
+            lobbies[ind].splice(i, 1)
+        }
+    }
+    console.log(lobbies, ind, lobbyLookup)
+    if(lobbies[ind].length ==0){
+        lobbies.splice(ind, 1)
+    }
 }
 
 function verifyCookie(id, cookie){
@@ -76,6 +107,18 @@ function verifyCookie(id, cookie){
     })
 }
 
+function waitForResponse(socket, eventName, alt) {
+    return new Promise((resolve, reject) => {
+        socket.on(eventName, data => {
+            resolve(data);
+        });
+
+        socket.on(alt, data => {
+            resolve(data);
+        });
+    });
+}
+
 async function createServer() {
     const app = express()
     app.use(express.json())
@@ -86,15 +129,44 @@ async function createServer() {
     io.on('connection', (socket) => {
         console.log('A user just connected.');
         socket.on('disconnect', () => {
+            lobbyRemove(socket.id)
             console.log('A user has disconnected.');
         })
 
         socket.on('new user', (id) => {
             console.log(`${id} has joined`);
-            const room = LOBBY_PREFIX+getLobby(id)
-            console.log(room)
-            socket.join(room)
-            socket.emit("assigned", room)
+            let val = getLobby(id, socket)
+            const lobby = val[0]
+            const nbr = val[1]
+            console.log(lobby, "proposed")
+            const room = LOBBY_PREFIX+lobby
+
+            if(nbr){
+                socket.emit("option")
+                nbr[1].emit("option")
+
+                const retRoom = room
+
+                Promise.all([
+                    waitForResponse(socket, "accept", "reject"),
+                    waitForResponse(nbr[1], "accept", "reject")
+                ])
+                .then(([r1, r2]) => {
+
+                    if(r1 == true && r2 == true){
+                        console.log("CONNECTING USERS", retRoom)
+                        socket.join(retRoom)
+                        nbr[1].join(retRoom)
+                        socket.emit("assigned", retRoom)
+                        nbr[1].emit("assigned", retRoom)
+                    }else{
+                    }
+                })
+                .catch(error => {
+                    // Handle errors if waitForResponse or other async operations fail
+                    console.error("Error:", error);
+                });
+            }      
         })
 
         socket.on('add color', (details) => {
@@ -170,17 +242,18 @@ async function createServer() {
             .then((entry) => {
                 console.log(entry)
                 if(!entry){
-                    res.status(402).send('Incorrect Info')
-                }
-                bcrypt.compare(req.body.password, entry.password)
-                .then((result) => {
-                    console.log("verification -->", result)
-                    if (result == true){
-                        res.send(JSON.stringify({success:true, id:entry.userNumber, cookie:createCookie(entry.userNumber)}))
-                    }else {
-                        res.status(402).send('Incorrect password')
-                    }
-                })
+                    return res.status(402).send('Incorrect Info')
+                }else{
+                    bcrypt.compare(req.body.password, entry.password)
+                    .then((result) => {
+                        console.log("verification -->", result)
+                        if (result == true){
+                            res.send(JSON.stringify({success:true, id:entry.userNumber, cookie:createCookie(entry.userNumber)}))
+                        }else {
+                            res.status(402).send('Incorrect password')
+                        }
+                    })
+            }
             })
             
         }

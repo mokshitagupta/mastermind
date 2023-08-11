@@ -148,3 +148,7 @@ function submitYellow(){
     verifyCookies("option", 3, "/set-avatar")
     console.log("user chose yellow")
 }
+
+function redirAvatar(){
+    window.location.href = "/set-avatar"
+}

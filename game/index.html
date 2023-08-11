@@ -9,9 +9,8 @@
   </head>
   <body id="gameBody">
     <div id="app"></div>
-    <script src="/game/main.js"></script>
-    <script src="/socket.io/socket.io.js"></script>
     <script src="/game/functions.js"></script>
-    
+    <script onload="websocketConn()" src="/socket.io/socket.io.js"></script>
+    <script src="/game/main.js"></script>
   </body>
 </html>
