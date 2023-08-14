@@ -1,3 +1,5 @@
+// const colors = require("./code.js")
+
 //CONSTANTS ------
 const ROWNUM = 10
 const DOTS = 4
@@ -23,6 +25,7 @@ let myLobby=""
 //SOCKET ------
 var socket=null
 
+//SECRET INFO ------
 let hiddenArr = ["green", "green", "green", "green"]
 
 function setboard(prefix=""){
@@ -272,7 +275,7 @@ function handleMultSubmit(e){
 
 function startGame(){
 
-    document.getElementById("waiting-room").remove()
+    // document.getElementById("waiting-room").remove()
     started = true
     setboard()
     let timer = document.getElementById("time")
@@ -363,7 +366,8 @@ function startTimer(duration, display, action=endGame) {
         minutes = minutes < 10 ? "0" + minutes : minutes;
         seconds = seconds < 10 ? "0" + seconds : seconds;
 
-        display.textContent = minutes + ":" + seconds;
+        // console.log(minutes,seconds)
+        display.innerHTML = minutes + ":" + seconds;
 
         if (--timer < 0) {
             action();
@@ -377,18 +381,25 @@ function startMultGame(){
     // socket.emit('startGame');
     // document.getElementById("waiting-room").remove()
     document.getElementById("p2-gboard").classList.remove("hidden")
+    let overlay = document.getElementById("waiting-room")
+    if(overlay){
+        document.getElementById("app").removeChild(overlay)
+    }
     // websocketConn()
 
     setboard()
     setboard("p2-")
-    document.getElementById("sides").classList.add("half")
+    // document.getElementById("sides").classList.add("half")
     document.getElementById("palette").classList.add("squish")
     startGame()
     insertListeners("p2-")
 }
 
 function websocketConn(){
-    socket = io();
+    socket = io('http://localhost:5173', {
+        transports: ['websocket'], 
+        upgrade: false
+    });
 
     const userID = sessionStorage.getItem("id")
 
@@ -413,6 +424,26 @@ function websocketConn(){
     socket.on("assigned", (lobby) => {
         myLobby = lobby
         console.log("i got assigned to lobby: ", myLobby)
+
+        // const request = new XMLHttpRequest();
+        // request.open("POST", "/set-code");
+        // request.setRequestHeader('Content-Type', 'application/json');
+        // request.send(JSON.stringify({
+        //     room:myLobby,
+        //     user:sessionStorage.getItem("id")
+        // }))
+
+        // socket.emit("redirect", "/set-code")
+        document.getElementById("waiting-room").innerHTML = renderColors()
+
+        waiting=false
+
+        letChoose()
+        // window.location.href = "/set-code"
+        // startMultGame()
+    })
+
+    socket.on("ready", () => {
         startMultGame()
     })
 
@@ -434,6 +465,11 @@ function websocketConn(){
             var event = new CustomEvent("undo", { "detail": {prefix:"p2-", dot:detail.dot, color:detail.color} });
             document.dispatchEvent(event);
         }
+    })
+
+    socket.on("hiddenArr", (detail) => {
+        hiddenArr = detail.hiddenArr
+        console.log(hiddenArr, detail)
     })
 
     socket.on("submit", (detail) => {

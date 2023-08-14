@@ -20,6 +20,8 @@ let lobbyLookup = {}
 let MAXCAP = 2
 let LOBBY_PREFIX = "Room "
 
+let choiceSent = {}
+
 // app.listen(PORT, () => {
 //     console.log(`Server is running on port ${PORT}`);
 // });
@@ -55,16 +57,18 @@ function getLobby(playeri, soc){
         console.log("creating first lobby")
         lobbies.push([[player, soc]])
     } else{
-        let last = lobbies[lobbies.length - 1]
-        if (last.length < MAXCAP){
-            console.log("putting in existing lobby")
-            lobbies[lobbies.length - 1].push([player,soc])
-            lobbyLookup[player] = lobbies.length - 1
-            return [lobbies.length - 1, lobbies[lobbies.length - 1][0] ]
-        }else{
-            console.log("creating new lobby")
-            lobbies.push([[player,soc]])
+
+        for (let index = 0; index < lobbies.length; index++) {
+            const element = lobbies[index];
+            if (element.length < MAXCAP){
+                lobbies[index].push([player, soc])
+                lobbyLookup[player] = index
+                return [index, lobbies[index][0]]
+            }
         }
+
+        console.log("creating new lobby")
+        lobbies.push([[player,soc]])
     }
 
     lobbyLookup[player] = lobbies.length - 1
@@ -169,6 +173,35 @@ async function createServer() {
             }      
         })
 
+        socket.on("hiddenArr", (loc) => {
+            console.log(loc)
+            let nbr = null
+            let sender = socket.id
+
+            choiceSent[socket.id] = true
+            for (const player of lobbies[loc.room]) {
+                if (socket.id != player[0]){
+                    console.log(loc)
+                    player[1].emit("hiddenArr",{hiddenArr: loc.choice})
+                    nbr = player
+                }
+            }
+
+            if (!(nbr[0] in choiceSent)){
+                Promise.all([
+                    waitForResponse(nbr[1], "hiddenArr", "whatever")
+                ])
+                .then(([resp]) => {
+                    console.log(resp)
+                    socket.emit("hiddenArr", {hiddenArr: resp.choice})
+                    socket.emit("ready")
+                    nbr[1].emit("ready")
+                })
+            } else {
+                socket.emit("ready")
+            }
+        })
+
         socket.on('add color', (details) => {
             console.log(details)
             io.to(details.room).emit("add color", details)
@@ -229,6 +262,12 @@ async function createServer() {
         }
         
     })
+
+    // app.use('/set-code',express.static("./game/code.html") )
+
+    // app.post('/set-code', (req, res) => {
+
+    // })
 
     app.post('/login', (req, res) => {
         console.log(req.body)

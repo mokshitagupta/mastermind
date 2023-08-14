@@ -1,8 +1,6 @@
 // const fns = require("./functions.js")
 
 document.querySelector('#app').innerHTML = `
-  <div>
-  <br><br>
   <div id="waiting-room">
     <link rel="stylesheet" type="text/css" href="/style.css"/>
     <h2>Welcome to the lobby!<br> You can choose a single player game below or wait for another player to join :)</h2>
@@ -14,7 +12,6 @@ document.querySelector('#app').innerHTML = `
   <div id="sides" class="sides">
   <div id="gboard"></div>
   <div id="palette">
-  </div>
   
   </div>
 
